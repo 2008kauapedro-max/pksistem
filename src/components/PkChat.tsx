@@ -63,47 +63,57 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
   }, [messages, thinking]);
 
   async function send(text?: string) {
-    const msg = (text ?? input).trim();
-    if (!msg || thinking) return;
-    setInput("");
-    setMessages((m) => [...m, { id: seq.current++, role: "user", text: msg }]);
-    setThinking(true);
+  const msg = (text ?? input).trim();
+  if (!msg || thinking) return;
+  setInput("");
+  setMessages((m) => [...m, { id: seq.current++, role: "user", text: msg }]);
+  setThinking(true);
+  
+  try {
+    let reply: string;
     
-    try {
-      let reply: string;
-      
-      // Tenta usar a Groq (IA real)
-      if (import.meta.env.VITE_GROQ_API_KEY) {
-        try {
-          const chatCompletion = await groq.chat.completions.create({
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              ...messages.map(m => ({ role: (m.role === "bot" ? "assistant" : m.role) as "user" | "assistant" | "system", content: m.text })),
-              { role: "user", content: msg }
-            ],
-            model: "llama-3.1-8b-instant",
-            temperature: 0.7,
-            max_tokens: 500
-          });
-          reply = chatCompletion.choices[0]?.message?.content || "Desculpe, não entendi. Pode reformular?";
-        } catch (groqError) {
-          console.error("Erro na Groq:", groqError);
-          reply = localAnswer(msg, tenant, platform); // Fallback para respostas locais
-        }
-      } else {
-        // Sem chave da Groq, usa respostas locais
-        await new Promise((r) => setTimeout(r, 500));
-        reply = localAnswer(msg, tenant, platform);
+    // Tenta usar a Groq (IA real)
+    if (import.meta.env.VITE_GROQ_API_KEY) {
+      try {
+        // Prepara o histórico convertendo TODOS os roles corretamente
+        const formattedMessages = messages.map(m => {
+          if (m.role === "bot") {
+            return { role: "assistant" as const, content: m.text };
+          } else if (m.role === "user") {
+            return { role: "user" as const, content: m.text };
+          }
+          return { role: "user" as const, content: m.text }; // Fallback
+        });
+
+        const chatCompletion = await groq.chat.completions.create({
+          messages: [
+            { role: "system" as const, content: SYSTEM_PROMPT },
+            ...formattedMessages,
+            { role: "user" as const, content: msg }
+          ],
+          model: "llama-3.1-8b-instant",
+          temperature: 0.7,
+          max_tokens: 500
+        });
+        reply = chatCompletion.choices[0]?.message?.content || "Desculpe, não entendi. Pode reformular?";
+      } catch (groqError) {
+        console.error("Erro na Groq:", groqError);
+        reply = localAnswer(msg, tenant, platform); // Fallback para respostas locais
       }
-      
-      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply }]);
-    } catch (error) {
-      console.error("Erro geral no PKChat:", error);
-      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: "Ops! Tive um problema. Tenta de novo em alguns segundos." }]);
-    } finally {
-      setThinking(false);
+    } else {
+      // Sem chave da Groq, usa respostas locais
+      await new Promise((r) => setTimeout(r, 500));
+      reply = localAnswer(msg, tenant, platform);
     }
+    
+    setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply }]);
+  } catch (error) {
+    console.error("Erro geral no PKChat:", error);
+    setMessages((m) => [...m, { id: seq.current++, role: "bot", text: "Ops! Tive um problema. Tenta de novo em alguns segundos." }]);
+  } finally {
+    setThinking(false);
   }
+}
 
   const quick = ["Como monto o cardápio?", "Quais são os planos?", "Como adiciono um cliente?"];
 
