@@ -78,7 +78,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
           const chatCompletion = await groq.chat.completions.create({
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
-              ...messages.map(m => ({ role: m.role === "bot" ? "assistant" : "user", content: m.text })),
+              ...messages.map(m => ({ role: (m.role === "bot" ? "assistant" : "user") as "assistant" | "user", content: m.text })),
               { role: "user", content: msg }
             ],
             model: "llama-3.1-8b-instant",
