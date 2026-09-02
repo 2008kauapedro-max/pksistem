@@ -1,9 +1,8 @@
-/* Login — atende dono de negócio, equipe e super admin (o papel vem da conta).
- * "Precisa de ajuda?" abre direto o PKChat (ninguém precisa incomodar à toa). */
+/* Login — atende dono de negócio, equipe e super admin.
+ * "Precisa de ajuda?" abre direto o PKChat. */
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth, useToast } from "../../context/providers";
-import { DEMO_ACCOUNTS } from "../../lib/api";
 import { Button, Field, Input, Modal } from "../../components/ui";
 import { I } from "../../components/icons";
 import { Wordmark } from "../../components/saas";
@@ -41,7 +40,6 @@ export default function LoginPage() {
     try {
       const { user, membership } = await signIn(email.trim(), password);
       push("success", `Bem-vindo(a) de volta, ${user.name.split(" ")[0]}!`);
-      // Destino deriva do papel da conta (nunca de parâmetro do cliente).
       if (user.isSuperAdmin) navigate("/super", { replace: true });
       else if (membership && !membership.tenant.onboardingCompleted) navigate("/onboarding", { replace: true });
       else if (membership) navigate("/app", { replace: true });
@@ -51,13 +49,6 @@ export default function LoginPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function fill(acc: { email: string; password: string }) {
-    setEmail(acc.email);
-    setPassword(acc.password);
-    setFieldErrors({});
-    setGlobalError(null);
   }
 
   return (
@@ -123,32 +114,10 @@ export default function LoginPage() {
           </div>
         </form>
 
-        {/* PKChat — ajuda instantânea antes de falar com um humano */}
+        {/* PKChat — ajuda instantânea */}
         <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title="PKChat · Ajuda PKSISTEM" subtitle="Pergunte algo — resposta na hora." size="lg">
           <PkChat tenant={null} compact />
         </Modal>
-
-        {/* Contas de demonstração — credenciais FIXAS, exibidas apenas para o demo */}
-        <div className="mt-5 rounded-xl border border-saffron-300/70 bg-saffron-50 px-4 py-3.5">
-          <p className="flex items-center gap-1.5 text-[12px] font-extrabold uppercase tracking-wide text-saffron-800">
-            <I name="info" size={14} /> Contas de demonstração
-          </p>
-          <p className="mt-1 text-[12px] leading-relaxed text-saffron-900">
-            Clique para preencher uma conta de teste (dados fictícios, apenas neste modo demonstração).
-          </p>
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {DEMO_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.email}
-                type="button"
-                onClick={() => fill(acc)}
-                className="rounded-full border border-saffron-300 bg-cream px-3 py-1.5 text-[11.5px] font-bold text-pine-800 transition-all hover:border-saffron-500 hover:bg-saffron-100 active:scale-[0.97]"
-              >
-                {acc.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <p className="mt-5 flex items-center justify-center gap-2 text-[12.5px] font-semibold text-pine-600">
           <I name="shield" size={15} className="text-pine-500" />

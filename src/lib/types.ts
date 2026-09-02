@@ -274,6 +274,8 @@ export type FeatureId =
   | "export_data";
 
 export interface Plan {
+    firstMonthPrice?: number; // Adicione esta linha
+  isEnterprise?: boolean;   // Adicione esta linha
   id: string;
   name: string;
   tagline: string;

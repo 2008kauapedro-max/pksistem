@@ -1,4 +1,4 @@
-/* Assinatura: plano atual, uso, upgrade (billing simulado), exportação e exclusão. */
+/* Assinatura: plano atual, uso, upgrade (via WhatsApp), exportação e exclusão. */
 import { useState } from "react";
 import { useAuth, useAsyncData, useToast } from "../../context/providers";
 import { api } from "../../lib/api";
@@ -15,7 +15,9 @@ export default function SubscriptionPage() {
   const tenantId = tenant?.id ?? "";
   const canBilling = membership?.role === "owner" || membership?.role === "admin";
 
-  const [changingTo, setChangingTo] = useState<string | null>(null);
+  // NOVO: Estado para controlar Mensal vs Anual
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -26,17 +28,28 @@ export default function SubscriptionPage() {
   if (!tenant) return null;
   const plan = getPlan(tenant.planId);
 
-  async function handleChangePlan(planId: string) {
-    setChangingTo(planId);
-    try {
-      await api.changePlan(tenantId, planId);
-      await refresh();
-      push("success", `Plano alterado para ${getPlan(planId).name}. (cobrança simulada neste demo)`);
-    } catch (err) {
-      push("error", err instanceof Error ? err.message : "Erro ao alterar o plano.");
-    } finally {
-      setChangingTo(null);
+  // ATUALIZADO: Função que redireciona para o WhatsApp com os dados e o preço correto
+  function handleWhatsAppPlanClick(planName: string, displayPrice: number, isPromo: boolean) {
+    if (!membership?.user || !membership?.tenant) {
+      push("error", "Erro ao identificar conta. Tente fazer login novamente.");
+      return;
     }
+
+    const userEmail = membership.user.email;
+    const businessName = membership.tenant.name;
+    const promoText = isPromo ? ` (Promoção 1º mês por ${formatPrice(displayPrice)})` : "";
+    const cycleText = billingCycle === "annual" ? " (Plano Anual)" : "";
+
+    const message = `Olá! 👋 Tenho interesse em assinar o plano *${planName}*${promoText}${cycleText} do PKSISTEM.\n\n` +
+      `*Meus dados cadastrados:*\n` +
+      `• Negócio: ${businessName}\n` +
+      `• E-mail da conta: ${userEmail}\n\n` +
+      `Gostaria de saber mais detalhes e como ativar!`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/556199314884?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, "_blank");
   }
 
   async function handleCancel() {
@@ -74,7 +87,7 @@ export default function SubscriptionPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `saborflow-${tenantId}.${format}`;
+      a.download = `pksistem-${tenantId}.${format}`;
       a.click();
       URL.revokeObjectURL(url);
       push("success", `Exportação ${format.toUpperCase()} baixada.`);
@@ -84,16 +97,16 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="animate-fade-up space-y-6">
+    <div className="animate-fade-up space-y-8 px-4 py-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-[clamp(1.6rem,4vw,2.2rem)] font-bold text-pine-950 dark:text-cream">Assinatura</h1>
-          <p className="mt-1 text-[14px] text-pine-600 dark:text-pine-300">Seu plano, uso e cobrança.</p>
+          <p className="mt-1 text-[14px] text-pine-600 dark:text-pine-300">Escolha o plano que faz sentido para o seu crescimento.</p>
         </div>
         <TenantStatusPill status={tenant.status} />
       </header>
 
-      {/* Plano atual + uso */}
+      {/* Plano atual + uso (MANTIDO EXATAMENTE IGUAL) */}
       <div className="rounded-2xl border border-pine-100 bg-cream p-5 shadow-card dark:border-pine-800 dark:bg-[#12211b]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -135,29 +148,134 @@ export default function SubscriptionPage() {
         )}
       </div>
 
-      {/* Planos */}
+      {/* NOVO: Seletor de Ciclo de Cobrança (Mensal / Anual) */}
+      {canBilling && (
+        <div className="flex flex-col items-center justify-center gap-3">
+          <h2 className="font-display text-[18px] font-bold text-pine-950 dark:text-cream">Mudar de plano</h2>
+          <div className="flex items-center gap-3 rounded-full border border-pine-200 bg-cream p-1.5 dark:border-pine-700 dark:bg-[#12211b]">
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              className={cn(
+                "rounded-full px-5 py-2 text-sm font-bold transition-all",
+                billingCycle === "monthly" ? "bg-pine-950 text-cream dark:bg-cream dark:text-pine-950" : "text-pine-600 hover:text-pine-900 dark:text-pine-400"
+              )}
+            >
+              Mensal
+            </button>
+            <button
+              onClick={() => setBillingCycle("annual")}
+              className={cn(
+                "relative rounded-full px-5 py-2 text-sm font-bold transition-all",
+                billingCycle === "annual" ? "bg-saffron-400 text-pine-950" : "text-pine-600 hover:text-pine-900 dark:text-pine-400"
+              )}
+            >
+              Anual
+              <span className="absolute -right-2 -top-2 rounded-full bg-green-500 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm">
+                -20%
+              </span>
+            </button>
+          </div>
+          {billingCycle === "annual" && (
+            <p className="text-center text-xs font-semibold text-green-600 dark:text-green-400">
+              💡 Economize 20% pagando anualmente. Cobrança única no cartão.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ATUALIZADO: Grade de Planos (Agora 3 colunas para caber os 6 planos sem esmagar) */}
       {canBilling && (
         <div>
-          <h2 className="mb-4 font-display text-[18px] font-bold text-pine-950 dark:text-cream">Mudar de plano</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {PLANS.map((p) => {
               const current = p.id === tenant.planId;
+              
+              // Lógica de preço: Se for anual, mostra preço anual/12. Se for mensal e não for o plano atual, mostra o preço do 1º mês.
+              const displayPrice = billingCycle === "annual" ? (p.priceAnnual / 12) : (current ? p.priceMonthly : (p.firstMonthPrice ?? p.priceMonthly));
+              const isPromo = billingCycle === "monthly" && !current && (p.firstMonthPrice ?? 0) < p.priceMonthly;
+              const savings = p.priceMonthly - (p.firstMonthPrice ?? p.priceMonthly);
+
               return (
-                <div key={p.id} className={cn("flex flex-col rounded-2xl border bg-cream p-4.5 shadow-card dark:bg-[#12211b]", current ? "border-saffron-400 ring-2 ring-saffron-400/40" : "border-pine-100 dark:border-pine-800")}>
-                  <p className="font-display text-[17px] font-bold text-pine-950 dark:text-cream">{p.name}</p>
-                  <p className="text-[12px] font-semibold text-pine-500">{formatPrice(p.priceMonthly)}/mês</p>
-                  <p className="mt-1.5 flex-1 text-[12px] leading-relaxed text-pine-600 dark:text-pine-300">{p.tagline}</p>
+                <div
+                  key={p.id}
+                  className={cn(
+                    "relative flex flex-col rounded-2xl border bg-cream p-5 shadow-card transition-all hover:shadow-lg dark:bg-[#12211b]",
+                    p.highlight && !current ? "border-saffron-400 ring-2 ring-saffron-400/30" : "border-pine-100 dark:border-pine-800",
+                    current && "border-pine-400 ring-2 ring-pine-400/30"
+                  )}
+                >
+                  {p.highlight && !current && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-saffron-400 px-3 py-1 text-[11px] font-extrabold text-pine-950 shadow-sm">
+                      ⭐ MAIS POPULAR
+                    </span>
+                  )}
+                  {current && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-pine-950 px-3 py-1 text-[11px] font-extrabold text-cream dark:bg-cream dark:text-pine-950">
+                      SEU PLANO
+                    </span>
+                  )}
+
+                  <div className="mb-4">
+                    <h3 className="font-display text-[18px] font-bold text-pine-950 dark:text-cream">{p.name}</h3>
+                    <p className="text-[12px] font-medium text-pine-500">{p.tagline}</p>
+                  </div>
+
+                  <div className="mb-5">
+                    {p.isEnterprise ? (
+                      <div className="flex flex-col">
+                        <span className="font-display text-[28px] font-bold text-pine-950 dark:text-cream">Sob Consulta</span>
+                        <span className="text-xs text-pine-500">Para redes e operações em escala</span>
+                      </div>
+                    ) : isPromo ? (
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-pine-400 line-through">{formatPrice(p.priceMonthly)}/mês</span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="font-display text-[32px] font-extrabold text-pine-950 dark:text-cream">{formatPrice(p.firstMonthPrice!)}</span>
+                          <span className="text-sm font-bold text-pine-600 dark:text-pine-300">no 1º mês</span>
+                        </div>
+                        <span className="text-xs text-pine-500">Depois {formatPrice(p.priceMonthly)}/mês</span>
+                        <span className="mt-2 inline-block w-fit rounded bg-green-100 px-2 py-1 text-[11px] font-extrabold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          🔥 Economize {formatPrice(savings)} hoje!
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col">
+                        <span className="font-display text-[32px] font-extrabold text-pine-950 dark:text-cream">
+                          {formatPrice(displayPrice)}
+                        </span>
+                        <span className="text-sm text-pine-500">
+                          {billingCycle === "annual" ? "/mês (cobrado anualmente)" : "/mês"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <ul className="mb-6 flex-1 space-y-2.5 text-sm">
+                    {p.features.slice(0, 5).map((feature) => (
+                      <li key={feature} className="flex items-start gap-2 text-pine-700 dark:text-pine-200">
+                        <I name="check" size={16} className="mt-0.5 shrink-0 text-saffron-600" />
+                        <span className="text-xs">{FEATURES[feature as FeatureId]?.name || feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
                   <Button
-                    className="mt-3"
+                    className="mt-auto"
                     size="sm"
                     full
-                    variant={current ? "secondary" : p.highlight ? "amber" : "secondary"}
+                    variant={current ? "ghost" : p.highlight ? "amber" : "secondary"}
                     disabled={current}
-                    loading={changingTo === p.id}
-                    onClick={() => handleChangePlan(p.id)}
+                    onClick={() => handleWhatsAppPlanClick(p.name, displayPrice, isPromo)}
+                    icon={p.isEnterprise ? "message" : "zap"}
                   >
-                    {current ? "Plano atual" : `Mudar para ${p.name}`}
+                    {current ? "Plano atual" : p.isEnterprise ? "Falar com especialista" : `Começar com ${p.name}`}
                   </Button>
+                  
+                  {!current && !p.isEnterprise && (
+                    <p className="mt-2 text-center text-[11px] text-pine-500">
+                      Redireciona para o WhatsApp
+                    </p>
+                  )}
                 </div>
               );
             })}
@@ -165,8 +283,8 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* Exportação + zona de perigo */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Exportação + zona de perigo (MANTIDO EXATAMENTE IGUAL) */}
+      <div className="grid gap-6 lg:grid-cols-2 pt-8 border-t border-pine-200 dark:border-pine-800">
         <div className="rounded-2xl border border-pine-100 bg-cream p-5 shadow-card dark:border-pine-800 dark:bg-[#12211b]">
           <h2 className="font-display text-[16px] font-bold text-pine-950 dark:text-cream">Exportar meus dados</h2>
           <p className="mt-1 text-[13px] text-pine-600 dark:text-pine-300">Baixe seus pratos, pedidos e clientes. Só os seus — nunca de outro restaurante.</p>

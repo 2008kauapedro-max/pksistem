@@ -1,4 +1,4 @@
-/* Planos, entitlements (recursos) e RBAC do SaborFlow.
+/* Planos, entitlements (recursos) e RBAC do PKSISTEM.
  * Preços e limites ficam aqui (e no banco, em produção) — nunca espalhados pela UI.
  */
 import type { FeatureId, Plan, Role, Tenant, Usage } from "./types";
@@ -24,59 +24,64 @@ export const PLANS: Plan[] = [
   {
     id: "free",
     name: "Grátis",
-    tagline: "Para começar a vender hoje",
+    tagline: "Comece sem gastar.",
     priceMonthly: 0,
     priceAnnual: 0,
+    firstMonthPrice: 0,
     limits: { maxProducts: 10, maxCategories: 3, maxUsers: 1, maxStorageMb: 50, maxMonthlyViews: 500 },
     features: ["whatsapp_orders", "site_customization"],
   },
   {
     id: "starter",
     name: "Starter",
-    tagline: "Para o dia a dia do restaurante",
-    priceMonthly: 49,
-    priceAnnual: 470,
+    tagline: "Para colocar seu negócio no digital.",
+    priceMonthly: 59,
+    priceAnnual: 560, // ~20% de desconto no anual
+    firstMonthPrice: 29,
     limits: { maxProducts: 50, maxCategories: 6, maxUsers: 2, maxStorageMb: 500, maxMonthlyViews: 5000 },
     features: ["whatsapp_orders", "site_customization", "analytics", "weekly_menu", "export_data"],
   },
   {
     id: "pro",
     name: "Pro",
-    tagline: "Para quem quer crescer",
-    priceMonthly: 99,
-    priceAnnual: 950,
+    tagline: "Para quem quer crescer.",
+    priceMonthly: 119,
+    priceAnnual: 1140, // ~20% de desconto no anual
+    firstMonthPrice: 59,
     limits: { maxProducts: 200, maxCategories: 12, maxUsers: 5, maxStorageMb: 2000, maxMonthlyViews: 50000 },
-    features: [
-      "whatsapp_orders",
-      "site_customization",
-      "analytics",
-      "advanced_analytics",
-      "weekly_menu",
-      "scheduled_menu",
-      "multiple_users",
-      "export_data",
-    ],
+    features: ["whatsapp_orders", "site_customization", "analytics", "advanced_analytics", "weekly_menu", "scheduled_menu", "multiple_users", "export_data"],
     highlight: true,
   },
   {
     id: "business",
     name: "Business",
-    tagline: "Para operações e redes",
-    priceMonthly: 199,
-    priceAnnual: 1910,
-    limits: { maxProducts: -1, maxCategories: -1, maxUsers: -1, maxStorageMb: 10000, maxMonthlyViews: -1 },
-    features: [
-      "whatsapp_orders",
-      "site_customization",
-      "analytics",
-      "advanced_analytics",
-      "weekly_menu",
-      "scheduled_menu",
-      "multiple_users",
-      "export_data",
-      "custom_domain",
-      "priority_support",
-    ],
+    tagline: "Para operações que vendem todos os dias.",
+    priceMonthly: 249,
+    priceAnnual: 2380,
+    firstMonthPrice: 119,
+    limits: { maxProducts: -1, maxCategories: -1, maxUsers: 10, maxStorageMb: 10000, maxMonthlyViews: -1 },
+    features: ["whatsapp_orders", "site_customization", "advanced_analytics", "scheduled_menu", "multiple_users", "export_data", "custom_domain", "priority_support"],
+  },
+  {
+    id: "premium",
+    name: "Premium",
+    tagline: "Para operações avançadas.",
+    priceMonthly: 399,
+    priceAnnual: 3820,
+    firstMonthPrice: 199,
+    limits: { maxProducts: -1, maxCategories: -1, maxUsers: 20, maxStorageMb: 20000, maxMonthlyViews: -1 },
+    features: ["whatsapp_orders", "site_customization", "advanced_analytics", "scheduled_menu", "multiple_users", "export_data", "custom_domain", "priority_support"],
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    tagline: "Para redes e operações em escala.",
+    priceMonthly: 699,
+    priceAnnual: 6990,
+    firstMonthPrice: 699,
+    isEnterprise: true,
+    limits: { maxProducts: -1, maxCategories: -1, maxUsers: -1, maxStorageMb: -1, maxMonthlyViews: -1 },
+    features: ["whatsapp_orders", "site_customization", "advanced_analytics", "scheduled_menu", "multiple_users", "export_data", "custom_domain", "priority_support"],
   },
 ];
 
@@ -110,16 +115,11 @@ export function limitValue(plan: Plan, key: LimitKey): number {
 
 export function usageFor(key: LimitKey, usage: Usage): number {
   switch (key) {
-    case "maxProducts":
-      return usage.products;
-    case "maxCategories":
-      return usage.categories;
-    case "maxUsers":
-      return usage.users;
-    case "maxStorageMb":
-      return usage.storageMb;
-    case "maxMonthlyViews":
-      return usage.monthlyViews;
+    case "maxProducts": return usage.products;
+    case "maxCategories": return usage.categories;
+    case "maxUsers": return usage.users;
+    case "maxStorageMb": return usage.storageMb;
+    case "maxMonthlyViews": return usage.monthlyViews;
   }
 }
 
