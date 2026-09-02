@@ -757,55 +757,57 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
   }, [messages, thinking]);
 
    async function send(text?: string) {
-    const msg = (text ?? input).trim();
-    if (!msg || thinking) return;
-    
-    setInput("");
-    setMessages((m) => [...m, { id: seq.current++, role: "user", text: msg }]);
-    setThinking(true);
-    
-    // VERIFICAÇÃO DE SEGURANÇA: Se a chave não existir, avisa na tela!
-    if (!import.meta.env.VITE_GROQ_API_KEY || import.meta.env.VITE_GROQ_API_KEY.length < 10) {
-      setMessages((m) => [...m, { 
-        id: seq.current++, 
-        role: "bot", 
-        text: "🚨 ERRO CRÍTICO: A chave da IA (VITE_GROQ_API_KEY) não foi encontrada!\n\n1. Verifique seu arquivo .env local.\n2. Verifique as Environment Variables na Vercel.\n3. Faça um Redeploy na Vercel após adicionar a variável.\n\nSem essa chave, eu só consigo responder com textos programados." 
-      }]);
-      setThinking(false);
-      return;
-    }
-
-    try {
-      const formattedMessages = messages.map(m => ({
-        role: (m.role === "bot" ? "assistant" : m.role) as "user" | "assistant",
+  const msg = (text ?? input).trim();
+  if (!msg || thinking) return;
+  
+  setInput("");
+  setMessages((m) => [...m, { id: seq.current++, role: "user", text: msg }]);
+  setThinking(true);
+  
+  if (!import.meta.env.VITE_GROQ_API_KEY) {
+    setMessages((m) => [...m, { 
+      id: seq.current++, 
+      role: "bot", 
+      text: "⚠️ API Key não configurada!" 
+    }]);
+    setThinking(false);
+    return;
+  }
+  
+  try {
+    // CONVERSÃO EXPLÍCITA E SEGURA DOS ROLES
+    const formattedMessages = messages
+      .filter(m => m.role === "user" || m.role === "bot") // Só pega mensagens válidas
+      .map(m => ({
+        role: m.role === "bot" ? "assistant" : "user", // Converte bot -> assistant
         content: m.text
       }));
 
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [
-          { role: "system" as const, content: SYSTEM_PROMPT },
-          ...formattedMessages,
-          { role: "user" as const, content: msg }
-        ],
-        model: "llama-3.1-70b-versatile", // IA REAL E PODEROSA
-        temperature: 0.7,
-        max_tokens: 1000
-      });
-      
-      const reply = chatCompletion.choices[0]?.message?.content;
-      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply || "Desculpe, sem resposta." }]);
-      
-    } catch (error) {
-      console.error("ERRO REAL DA IA:", error);
-      setMessages((m) => [...m, { 
-        id: seq.current++, 
-        role: "bot", 
-        text: `❌ A IA tentou responder mas deu erro: ${error instanceof Error ? error.message : "Erro desconhecido"}. Verifique o Console (F12).` 
-      }]);
-    } finally {
-      setThinking(false);
-    }
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...formattedMessages,
+        { role: "user", content: msg }
+      ],
+      model: "llama-3.1-70b-versatile",
+      temperature: 0.7,
+      max_tokens: 1000
+    });
+    
+    const reply = chatCompletion.choices[0]?.message?.content;
+    setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply || "Desculpe, sem resposta." }]);
+    
+  } catch (error) {
+    console.error("ERRO REAL DA IA:", error);
+    setMessages((m) => [...m, { 
+      id: seq.current++, 
+      role: "bot", 
+      text: `❌ Erro: ${error instanceof Error ? error.message : "Erro desconhecido"}` 
+    }]);
+  } finally {
+    setThinking(false);
   }
+}
 
   const quick = ["Como adiciono um produto?", "Como vejo meu dashboard?", "Quais são os planos?", "Como configuro o cardápio automático?"];
 
