@@ -11,7 +11,7 @@ interface Msg {
   text: string;
 }
 
-const SYSTEM_PROMPT = `Você é o PKChat, assistente do PKSISTEM. Seja amigável e prestativo.`;
+const SYSTEM_PROMPT = `Você é o PKChat, assistente do PKSISTEM. Seja amigável, prestativo e responda em português.`;
 
 export default function PkChat({ tenant, compact = false }: { tenant: Tenant | null; compact?: boolean }) {
   const [platform, setPlatform] = useState<PlatformSettings | null>(null);
@@ -45,18 +45,21 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
     }
     
     try {
-      // Constrói o payload MANUALMENTE como string JSON
       const messagesArray: Array<{role: string, content: string}> = [];
       messagesArray.push({ role: "system", content: SYSTEM_PROMPT });
       
       messages.forEach(m => {
+        const safeRole = m.role === "user" ? "user" : "assistant";
         messagesArray.push({ 
-          role: m.role === "user" ? "user" : "assistant", 
+          role: safeRole, 
           content: m.text 
         });
       });
       
       messagesArray.push({ role: "user", content: msg });
+
+      // DEBUG: Isso vai aparecer no seu console (F12) para provar o formato
+      console.log("🔍 PAYLOAD ENVIADO PARA GROQ:", JSON.stringify(messagesArray, null, 2));
 
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -65,7 +68,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "mixtral-8x7b-32768",
+          model: "llama-3.3-70b-versatile", // Modelo mais estável e atual
           messages: messagesArray,
           temperature: 0.7,
           max_tokens: 1000
@@ -85,7 +88,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
       setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply }]);
       
     } catch (error) {
-      console.error("ERRO GROQ:", error);
+      console.error("❌ ERRO GROQ DETALHADO:", error);
       setMessages((m) => [...m, { 
         id: seq.current++, 
         role: "bot", 
