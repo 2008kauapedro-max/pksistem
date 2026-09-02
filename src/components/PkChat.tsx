@@ -773,15 +773,16 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
             content: m.text
           }));
 
-          const chatCompletion = await groq.chat.completions.create({
+                    const chatCompletion = await groq.chat.completions.create({
             messages: [
               { role: "system" as const, content: SYSTEM_PROMPT },
               ...formattedMessages,
               { role: "user" as const, content: msg }
             ],
-            model: "llama-3.1-8b-instant",
+            // MUDANÇA AQUI: Modelo 70B é MUITO mais inteligente e entende contexto complexo
+            model: "llama-3.1-70b-versatile", 
             temperature: 0.7,
-            max_tokens: 800
+            max_tokens: 1000 // Aumentado para respostas mais completas
           });
           
           reply = chatCompletion.choices[0]?.message?.content || "Desculpe, não entendi. Pode reformular?";
