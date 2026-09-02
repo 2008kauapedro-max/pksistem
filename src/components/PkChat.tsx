@@ -107,7 +107,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
 
       const chatCompletion = await groq.chat.completions.create({
         messages: groqMessages,
-        model: "llama-3.1-70b-versatile",
+        model: "llama-3.3-70b-versatile",
         temperature: 0.7,
         max_tokens: 1000
       });
