@@ -1,16 +1,10 @@
-/* PKChat — assistente inteligente do PKSISTEM com IA Groq */
+/* PKChat — assistente inteligente do PKSISTEM com IA Groq (via fetch direto) */
 import { useEffect, useRef, useState } from "react";
-import Groq from "groq-sdk";
 import { api } from "../lib/api";
 import type { PlatformSettings, Tenant } from "../lib/types";
 import { cn } from "../lib/utils";
 import { I } from "./icons";
 import { Spinner } from "./ui";
-
-const groq = new Groq({ 
-  apiKey: import.meta.env.VITE_GROQ_API_KEY,
-  dangerouslyAllowBrowser: true
-});
 
 interface Msg {
   id: number;
@@ -23,7 +17,8 @@ const SYSTEM_PROMPT = `Você é o PKChat, assistente virtual OFICIAL do PKSISTEM
 SUA PERSONALIDADE:
 - 🌟 AMIGÁVEL e EMPÁTICO
 - 💬 Use emojis naturalmente
-- 🎯 SEJA ESPECÍFICO e PRÁTICO
+-  SEJA ESPECÍFICO e PRÁTICO
+- 📚 Explique PASSO A PASSO quando necessário
 
 Responda SEMPRE em português do Brasil.`;
 
@@ -69,50 +64,43 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
     }
     
     try {
-      // Cria array com tipos EXPLÍCITOS e CORRETOS para a Groq
-      type GroqMessage = {
-        role: "system" | "user" | "assistant";
-        content: string;
-      };
-
-      const groqMessages: GroqMessage[] = [];
+      // Constrói mensagens no formato EXATO que a Groq espera
+      const messagesPayload = [
+        { role: "system", content: SYSTEM_PROMPT }
+      ];
       
-      // Mensagem do sistema
-      groqMessages.push({
-        role: "system",
-        content: SYSTEM_PROMPT
-      });
-      
-      // Histórico de mensagens (conversão segura)
       messages.forEach(m => {
         if (m.role === "user") {
-          groqMessages.push({
-            role: "user",
-            content: m.text
-          });
+          messagesPayload.push({ role: "user", content: m.text });
         } else {
-          // "bot" vira "assistant"
-          groqMessages.push({
-            role: "assistant",
-            content: m.text
-          });
+          messagesPayload.push({ role: "assistant", content: m.text });
         }
       });
       
-      // Mensagem atual
-      groqMessages.push({
-        role: "user",
-        content: msg
+      messagesPayload.push({ role: "user", content: msg });
+
+      // CHAMADA DIRETA VIA FETCH (sem SDK)
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: messagesPayload,
+          temperature: 0.7,
+          max_tokens: 1000
+        })
       });
 
-      const chatCompletion = await groq.chat.completions.create({
-        messages: groqMessages,
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.7,
-        max_tokens: 1000
-      });
-      
-      const reply = chatCompletion.choices[0]?.message?.content;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const reply = data.choices[0]?.message?.content;
       
       if (!reply) {
         throw new Error("IA retornou resposta vazia");
