@@ -11,7 +11,7 @@ interface Msg {
   text: string;
 }
 
-const SYSTEM_PROMPT = `Você é o PKChat, assistente do PKSISTEM. Seja amigável, prestativo e responda em português.`;
+const SYSTEM_PROMPT = `Você é o PKChat, assistente do PKSISTEM.`;
 
 export default function PkChat({ tenant, compact = false }: { tenant: Tenant | null; compact?: boolean }) {
   const [platform, setPlatform] = useState<PlatformSettings | null>(null);
@@ -23,7 +23,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
 
   useEffect(() => {
     api.getPlatformPublic().then(setPlatform).catch(() => {});
-    setMessages([{ id: 0, role: "bot", text: "Olá! Sou o PKChat. Como posso ajudar?" }]);
+    setMessages([{ id: 0, role: "bot", text: "Olá! Sou o PKChat." }]);
   }, []);
 
   useEffect(() => {
@@ -45,21 +45,33 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
     }
     
     try {
-      const messagesArray: Array<{role: string, content: string}> = [];
-      messagesArray.push({ role: "system", content: SYSTEM_PROMPT });
+      // Cria array vazio
+      const messagesPayload: any[] = [];
       
+      // Adiciona system message (FORÇANDO STRING EXATA)
+      messagesPayload.push({
+        role: "system" as "system",
+        content: SYSTEM_PROMPT
+      });
+      
+      // Adiciona histórico (CONVERSÃO EXPLÍCITA)
       messages.forEach(m => {
-        const safeRole = m.role === "user" ? "user" : "assistant";
-        messagesArray.push({ 
-          role: safeRole, 
-          content: m.text 
+        // FORÇA o role correto como string literal
+        const groqRole: "user" | "assistant" = m.role === "user" ? "user" : "assistant";
+        messagesPayload.push({
+          role: groqRole,
+          content: m.text
         });
       });
       
-      messagesArray.push({ role: "user", content: msg });
+      // Adiciona mensagem atual
+      messagesPayload.push({
+        role: "user" as "user",
+        content: msg
+      });
 
-      // DEBUG: Isso vai aparecer no seu console (F12) para provar o formato
-      console.log("🔍 PAYLOAD ENVIADO PARA GROQ:", JSON.stringify(messagesArray, null, 2));
+      // DEBUG: Mostra exatamente o que será enviado
+      console.log("📤 ENVIANDO PARA GROQ:", JSON.stringify(messagesPayload, null, 2));
 
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -69,15 +81,16 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
         },
         body: JSON.stringify({
           model: "mixtral-8x7b-32768",
-          messages: messagesArray,
+          messages: messagesPayload,
           temperature: 0.7,
           max_tokens: 1000
         })
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("❌ RESPOSTA DA GROQ:", errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
@@ -88,7 +101,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
       setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply }]);
       
     } catch (error) {
-      console.error("❌ ERRO GROQ DETALHADO:", error);
+      console.error("💥 ERRO:", error);
       setMessages((m) => [...m, { 
         id: seq.current++, 
         role: "bot", 
