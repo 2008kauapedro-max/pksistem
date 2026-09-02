@@ -757,51 +757,60 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
   }, [messages, thinking]);
 
   async function send(text?: string) {
-    const msg = (text ?? input).trim();
-    if (!msg || thinking) return;
-    setInput("");
-    setMessages((m) => [...m, { id: seq.current++, role: "user", text: msg }]);
-    setThinking(true);
-    
-    try {
-      let reply: string;
-      
-      if (import.meta.env.VITE_GROQ_API_KEY) {
-        try {
-          const formattedMessages = messages.map(m => ({
-            role: (m.role === "bot" ? "assistant" : m.role) as "user" | "assistant",
-            content: m.text
-          }));
-
-                    const chatCompletion = await groq.chat.completions.create({
-            messages: [
-              { role: "system" as const, content: SYSTEM_PROMPT },
-              ...formattedMessages,
-              { role: "user" as const, content: msg }
-            ],
-            // MUDANÇA AQUI: Modelo 70B é MUITO mais inteligente e entende contexto complexo
-            model: "llama-3.1-70b-versatile", 
-            temperature: 0.7,
-            max_tokens: 1000 // Aumentado para respostas mais completas
-          });
-          
-          reply = chatCompletion.choices[0]?.message?.content || "Desculpe, não entendi. Pode reformular?";
-        } catch (groqError) {
-          console.error("Erro na Groq:", groqError);
-          reply = "Ops! Tive um probleminha técnico. 😅 Tenta de novo ou fala direto comigo:\n\n[📱 Chamar no WhatsApp]";
-        }
-      } else {
-        reply = "PKChat em modo demo. Configure a chave da Groq para ativar a IA!\n\n[⚙️ Configurar API Key]";
-      }
-      
-      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply }]);
-    } catch (error) {
-      console.error("Erro geral no PKChat:", error);
-      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: "Ops! Tive um problema. Tenta de novo.\n\n[🔄 Tentar novamente]" }]);
-    } finally {
-      setThinking(false);
-    }
+  const msg = (text ?? input).trim();
+  if (!msg || thinking) return;
+  
+  setInput("");
+  setMessages((m) => [...m, { id: seq.current++, role: "user", text: msg }]);
+  setThinking(true);
+  
+  // Se NÃO tem API key configurada, avisa imediatamente
+  if (!import.meta.env.VITE_GROQ_API_KEY) {
+    setMessages((m) => [...m, { 
+      id: seq.current++, 
+      role: "bot", 
+      text: "⚠️ API Key não configurada!\n\nPara ativar a IA real:\n1. Vá em Configurações da Vercel\n2. Adicione a variável VITE_GROQ_API_KEY\n3. Obtenha sua chave em: https://console.groq.com/keys" 
+    }]);
+    setThinking(false);
+    return;
   }
+  
+  try {
+    const formattedMessages = messages.map(m => ({
+      role: (m.role === "bot" ? "assistant" : m.role) as "user" | "assistant",
+      content: m.text
+    }));
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        { role: "system" as const, content: SYSTEM_PROMPT },
+        ...formattedMessages,
+        { role: "user" as const, content: msg }
+      ],
+      model: "llama-3.1-70b-versatile",
+      temperature: 0.7,
+      max_tokens: 1000
+    });
+    
+    const reply = chatCompletion.choices[0]?.message?.content;
+    
+    if (!reply) {
+      throw new Error("IA não retornou resposta");
+    }
+    
+    setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply }]);
+    
+  } catch (error) {
+    console.error("ERRO GRAVE NO PKCHAT:", error);
+    setMessages((m) => [...m, { 
+      id: seq.current++, 
+      role: "bot", 
+      text: `❌ Erro na IA: ${error instanceof Error ? error.message : "Erro desconhecido"}\n\nVerifique:\n1. Se a API Key está correta\n2. Console do navegador (F12) para detalhes` 
+    }]);
+  } finally {
+    setThinking(false);
+  }
+}
 
   const quick = ["Como adiciono um produto?", "Como vejo meu dashboard?", "Quais são os planos?", "Como configuro o cardápio automático?"];
 
