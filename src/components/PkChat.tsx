@@ -24,7 +24,6 @@ SUA PERSONALIDADE:
 - 🌟 AMIGÁVEL e EMPÁTICO
 - 💬 Use emojis naturalmente
 - 🎯 SEJA ESPECÍFICO e PRÁTICO
-- 📚 Explique PASSO A PASSO quando necessário
 
 Responda SEMPRE em português do Brasil.`;
 
@@ -70,23 +69,44 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
     }
     
     try {
-      // Construção segura do array de mensagens para a Groq
-      const groqMessages: Array<{role: string; content: string}> = [
-        { role: "system", content: SYSTEM_PROMPT }
-      ];
+      // Cria array com tipos EXPLÍCITOS e CORRETOS para a Groq
+      type GroqMessage = {
+        role: "system" | "user" | "assistant";
+        content: string;
+      };
+
+      const groqMessages: GroqMessage[] = [];
       
+      // Mensagem do sistema
+      groqMessages.push({
+        role: "system",
+        content: SYSTEM_PROMPT
+      });
+      
+      // Histórico de mensagens (conversão segura)
       messages.forEach(m => {
         if (m.role === "user") {
-          groqMessages.push({ role: "user", content: m.text });
+          groqMessages.push({
+            role: "user",
+            content: m.text
+          });
         } else {
-          groqMessages.push({ role: "assistant", content: m.text });
+          // "bot" vira "assistant"
+          groqMessages.push({
+            role: "assistant",
+            content: m.text
+          });
         }
       });
       
-      groqMessages.push({ role: "user", content: msg });
+      // Mensagem atual
+      groqMessages.push({
+        role: "user",
+        content: msg
+      });
 
       const chatCompletion = await groq.chat.completions.create({
-        messages: groqMessages as any, // Type assertion para evitar erro do TS
+        messages: groqMessages,
         model: "llama-3.1-70b-versatile",
         temperature: 0.7,
         max_tokens: 1000
@@ -105,7 +125,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
       setMessages((m) => [...m, { 
         id: seq.current++, 
         role: "bot", 
-        text: `❌ Erro na IA: ${error instanceof Error ? error.message : "Erro desconhecido"}` 
+        text: `❌ Erro: ${error instanceof Error ? error.message : "Erro desconhecido"}` 
       }]);
     } finally {
       setThinking(false);
