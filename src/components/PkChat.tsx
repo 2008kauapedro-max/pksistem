@@ -57,23 +57,28 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
       });
       
       // Adiciona mensagem atual
-      msgs.push({ role: "user", content: msg });
+     from groq import Groq
 
-      console.log("ENVIANDO:", JSON.stringify(msgs, null, 2));
+client = Groq()
+completion = client.chat.completions.create(
+    model="openai/gpt-oss-120b",
+    messages=[
+      {
+        "role": "user",
+        "content": ""
+      }
+    ],
+    temperature=1,
+    max_completion_tokens=2048,
+    top_p=1,
+    reasoning_effort="medium",
+    stream=True,
+    stop=None
+)
 
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + import.meta.env.VITE_GROQ_API_KEY,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "deepseek-r1-distill-llama-70b",
-          messages: msgs,
-          temperature: 0.7,
-          max_tokens: 1000
-        })
-      });
+for chunk in completion:
+    print(chunk.choices[0].delta.content or "", end="")
+
 
       const data = await res.json();
       
