@@ -23,7 +23,8 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
 
   useEffect(() => {
     api.getPlatformPublic().then(setPlatform).catch(() => {});
-    setMessages([{ id: 0, role: "bot", text: "Olá! Sou o PKChat." }]);
+    // MUDANÇA CRÍTICA: Mensagem inicial como "user" em vez de "bot"
+    setMessages([{ id: 0, role: "user", text: "Olá! Sou o PKChat." }]);
   }, []);
 
   useEffect(() => {
@@ -45,33 +46,24 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
     }
     
     try {
-      // Cria array vazio
-      const messagesPayload: any[] = [];
+      const messagesPayload: Array<{role: string; content: string}> = [];
       
-      // Adiciona system message (FORÇANDO STRING EXATA)
-      messagesPayload.push({
-        role: "system" as "system",
-        content: SYSTEM_PROMPT
-      });
+      // System message
+      messagesPayload.push({ role: "system", content: SYSTEM_PROMPT });
       
-      // Adiciona histórico (CONVERSÃO EXPLÍCITA)
+      // Histórico - CONVERSÃO EXPLÍCITA
       messages.forEach(m => {
-        // FORÇA o role correto como string literal
-        const groqRole: "user" | "assistant" = m.role === "user" ? "user" : "assistant";
-        messagesPayload.push({
-          role: groqRole,
-          content: m.text
-        });
+        if (m.role === "user") {
+          messagesPayload.push({ role: "user", content: m.text });
+        } else {
+          messagesPayload.push({ role: "assistant", content: m.text });
+        }
       });
       
-      // Adiciona mensagem atual
-      messagesPayload.push({
-        role: "user" as "user",
-        content: msg
-      });
+      // Mensagem atual
+      messagesPayload.push({ role: "user", content: msg });
 
-      // DEBUG: Mostra exatamente o que será enviado
-      console.log("📤 ENVIANDO PARA GROQ:", JSON.stringify(messagesPayload, null, 2));
+      console.log("📤 ENVIANDO:", messagesPayload);
 
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -80,7 +72,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "gemma2-9b-it",
+          model: "llama-3.1-8b-instant",
           messages: messagesPayload,
           temperature: 0.7,
           max_tokens: 1000
@@ -88,9 +80,8 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ RESPOSTA DA GROQ:", errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
@@ -105,7 +96,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
       setMessages((m) => [...m, { 
         id: seq.current++, 
         role: "bot", 
-        text: `❌ Erro: ${error instanceof Error ? error.message : "Erro desconhecido"}` 
+        text: ` Erro: ${error instanceof Error ? error.message : "Erro"}` 
       }]);
     } finally {
       setThinking(false);
