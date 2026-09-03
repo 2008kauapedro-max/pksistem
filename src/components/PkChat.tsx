@@ -23,14 +23,14 @@ Quando o cliente pedir para personalizar o site (ex: "personaliza pra minha past
 - Pergunte: "Qual cor principal você quer? (ex: vermelho, azul, verde)"
 - Pergunte: "Qual cor secundária? (para detalhes e botões)"
 - Pergunte: "Qual seu Instagram ou redes sociais?"
-- Depois diga: "Perfeito! Vou configurar seu site com essas informações. Acessando: Menu > Meu Site > Personalizar"
+- Depois diga: "Perfeito! Vou configurar seu site com essas informações. Acesse: Menu > Meu Site > Personalizar"
 
 COMO ADICIONAR PRODUTOS:
 Quando pedirem para adicionar produto:
 - Pergunte: "Qual o nome do produto?"
 - Pergunte: "Qual o preço?"
 - Pergunte: "Qual categoria? (ex: Pastéis, Bebidas, Sobremesas)"
-- Depois diga: "Vou adicionar! Acessando: Menu > Cardápio > + Novo Produto"
+- Depois diga: "Vou adicionar! Acesse: Menu > Cardápio > + Novo Produto"
 
 REGRAS:
 - Seja CURTO e DIRETO (máx 3-4 frases)
@@ -128,7 +128,7 @@ export default function PkChat({ tenant, compact = false, floating = false }: { 
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "openai/gpt-oss-120b", // MODELO QUE FUNCIONA!
+          model: "openai/gpt-oss-120b",
           messages: msgs,
           temperature: 0.5,
           max_tokens: 400
@@ -157,9 +157,9 @@ export default function PkChat({ tenant, compact = false, floating = false }: { 
         {!isOpen && (
           <button
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-saffron-400 text-pine-950 shadow-lg transition-all hover:scale-110 hover:bg-saffron-300"
+            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-saffron-400 text-pine-950 shadow-lg transition-all hover:scale-110 hover:bg-saffron-300 text-2xl"
           >
-            <I name="message" size={24} />
+            💬
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
               <span className="relative inline-flex h-4 w-4 rounded-full bg-green-500"></span>
@@ -179,8 +179,8 @@ export default function PkChat({ tenant, compact = false, floating = false }: { 
                   <p className="text-[10px] font-semibold text-pine-300">Assistente Inteligente</p>
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="rounded-lg p-1.5 text-pine-300 hover:bg-pine-800">
-                <I name="close" size={18} />
+              <button onClick={() => setIsOpen(false)} className="rounded-lg p-1.5 text-pine-300 hover:bg-pine-800 text-xl leading-none">
+                ✕
               </button>
             </div>
 
@@ -216,22 +216,18 @@ export default function PkChat({ tenant, compact = false, floating = false }: { 
                 disabled={isListening}
               />
               
-              {/* Botão de Áudio - Lado Direito */}
+              {/* Botão de Áudio - Lado Direito (Usando Emoji para evitar erro de IconName) */}
               <button 
                 type="button" 
                 onClick={toggleListening}
-                className={cn("flex h-10 w-10 items-center justify-center rounded-xl transition-all", 
+                className={cn("flex h-10 w-10 items-center justify-center rounded-xl transition-all text-lg", 
                   isListening 
                     ? "bg-red-500 text-white animate-pulse scale-110" 
                     : "bg-pine-100 text-pine-600 hover:bg-saffron-400 hover:text-pine-950 dark:bg-pine-800 dark:text-pine-300"
                 )}
                 title={isListening ? "Parar de ouvir" : "Falar por áudio"}
               >
-                {isListening ? (
-                  <I name="mic" size={18} />
-                ) : (
-                  <I name="volume" size={18} /> {/* Ícone de volume/áudio */}
-                )}
+                {isListening ? "🎤" : "🔊"}
               </button>
 
               {/* Botão de Enviar */}
@@ -245,7 +241,7 @@ export default function PkChat({ tenant, compact = false, floating = false }: { 
     );
   }
 
-  // Versão normal
+  // Versão normal (dentro da página)
   return (
     <div className={cn("flex flex-col overflow-hidden rounded-2xl border border-pine-100 bg-cream shadow-card dark:border-pine-800 dark:bg-pine-900", compact ? "h-[420px]" : "h-[480px]")}>
       <div className="flex items-center gap-3 border-b border-pine-100 bg-pine-950 px-4 py-3.5 dark:border-pine-800">
@@ -293,14 +289,14 @@ export default function PkChat({ tenant, compact = false, floating = false }: { 
         <button 
           type="button" 
           onClick={toggleListening}
-          className={cn("flex h-10 w-10 items-center justify-center rounded-xl transition-all", 
+          className={cn("flex h-10 w-10 items-center justify-center rounded-xl transition-all text-lg", 
             isListening 
               ? "bg-red-500 text-white animate-pulse scale-110" 
               : "bg-pine-100 text-pine-600 hover:bg-saffron-400 hover:text-pine-950 dark:bg-pine-800 dark:text-pine-300"
           )}
           title={isListening ? "Parar de ouvir" : "Falar por áudio"}
         >
-          {isListening ? <I name="mic" size={18} /> : <I name="volume" size={18} />}
+          {isListening ? "🎤" : "🔊"}
         </button>
 
         <button type="submit" disabled={!input.trim() || thinking} className="flex h-10 w-10 items-center justify-center rounded-xl bg-saffron-400 text-pine-950 hover:bg-saffron-300 transition-colors disabled:opacity-50">
