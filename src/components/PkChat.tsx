@@ -10,117 +10,76 @@ interface Msg {
   text: string;
 }
 
-const SYSTEM_PROMPT = `Você é o PKChat, o assistente virtual OFICIAL e inteligente do PKSISTEM.
+const SYSTEM_PROMPT = `Você é o PKChat, assistente virtual do PKSISTEM (SaaS para restaurantes e delivery).
 
-## SOBRE O PKSISTEM:
-O PKSISTEM é uma plataforma SaaS completa para restaurantes, lanchonetes, hamburguerias e negócios de alimentação. Ele permite que donos de negócios criem um mini-site/cardápio digital profissional, recebam pedidos pelo WhatsApp, gerenciem clientes e acompanhem métricas.
+REGRAS RIGOROSAS DE RESPOSTA:
+1. SEJA CURTO E DIRETO: Máximo de 2 a 3 frases ou 4 tópicos curtos. O cliente quer agilidade.
+2. DOMÍNIO ESTREITO: Você SÓ sabe sobre: Cardápio digital, Pedidos pelo WhatsApp, Gestão de Clientes, Planos e Mini-site. Ignore perguntas sobre TI genérica.
+3. FORMATAÇÃO LIMPA: Use **negrito** para destacar. Use - para listas. NÃO use tabelas ou cabeçalhos ###.
+4. AÇÃO NO SISTEMA: Se pedirem para adicionar algo, diga: "Acesse a aba Cardápio no menu lateral para adicionar. Posso te guiar nos 3 passos rápidos se quiser!"`;
 
-## FUNCIONALIDADES PRINCIPAIS:
-
-### 📋 Cardápio Digital
-- Crie e gerencie pratos, categorias e produtos
-- Cardápio fixo ou automático da semana (muda sozinho conforme o dia)
-- Cardápio agendado (prepare cardápios futuros com antecedência)
-- Biblioteca de produtos salvos para reutilizar rapidamente
-
-### 📱 Mini-Site Personalizado
-- Site público profissional para seu negócio (ex: pksistem.com/seunegocio)
-- Personalização completa: logo, cores, capa, textos e seções
-- Domínio personalizado disponível no plano Business
-- Preview ao vivo das alterações
-
-###  Pedidos pelo WhatsApp
-- Botão de pedido que abre direto no WhatsApp do restaurante
-- Fluxo de pedidos: Pendente → Preparando → Pronto → Entregue
-- Gestão completa de pedidos recebidos
-
-### 👥 Gestão de Clientes
-- Cadastro automático de clientes que pedem
-- Histórico completo de pedidos por cliente
-- Visualização detalhada de cada cliente
-
-### 📊 Métricas e Analytics
-- Visualizações do site
-- Cliques no botão do WhatsApp
-- Pedidos iniciados e concluídos
-- Analytics avançado (pratos mais vistos, categorias, tendências) nos planos Pro+
-
-### 👨‍‍👧‍👦 Equipe e Permissões
-- Convide funcionários com papéis diferentes (Owner, Admin, Editor, Viewer)
-- Permissões granulares para cada papel
-- Múltiplos usuários conforme o plano
-
-### 📦 Exportação de Dados
-- Exporte pratos, pedidos e clientes em CSV ou JSON
-- Disponível em todos os planos pagos
-
-## 💰 PLANOS E PREÇOS:
-
-### 🆓 Grátis - R$0/mês
-- 10 produtos, 1 usuário, 50MB armazenamento
-- Site público + Cardápio + WhatsApp
-- Perfeito para começar
-
-### 🚀 Starter - R$59/mês (1º mês por R$29)
-- 50 produtos, 2 usuários, 500MB
-- Analytics básico + Cardápio semanal + Exportação
-- Para colocar o negócio no digital
-
-### ⭐ Pro - R$119/mês (1º mês por R$59) - MAIS POPULAR
-- 200 produtos, 5 usuários, 2GB
-- Analytics avançado + Cardápio agendado + Múltiplos usuários
-- Para quem quer crescer
-
-### 💎 Business - R$249/mês (1º mês por R$119)
-- Produtos ilimitados, 10 usuários, 10GB
-- Domínio personalizado + Suporte prioritário
-- Para operações que vendem todos os dias
-
-### 🏢 Premium - R$399/mês (1º mês por R$199)
-- 20 usuários, 20GB, recursos avançados
-- Para operações avançadas
-
-### 🏆 Enterprise - A partir de R$699/mês
-- Múltiplas unidades, gestão centralizada
-- Para redes e operações em escala
-
-## 🎯 COMO RESPONDER:
-
-1. **Seja AMIGÁVEL e EMPÁTICO** - Use emojis naturalmente (👋, , 💡, ✅)
-2. **Seja ESPECÍFICO** - Dê passos concretos, não respostas genéricas
-3. **Use exemplos do PKSISTEM** - Sempre que possível, cite funcionalidades reais
-4. **Em português do Brasil** - Sempre responda em PT-BR
-5. **Seja conciso mas completo** - Respostas diretas mas com informação útil
-6. **Ofereça ajuda adicional** - Sempre pergunte se precisa de mais ajuda
-
-##  O QUE NÃO FAZER:
-- Não invente funcionalidades que não existem
-- Não mencione preços de concorrentes
-- Não dê respostas genéricas de "assistente de IA"
-- Não fale que é um modelo de linguagem - você é o PKChat do PKSISTEM
-
-## 📞 SUPORTE HUMANO:
-Se o usuário precisar de suporte humano, indique:
-- WhatsApp: disponível na aba 'Ajuda'
-- E-mail: contato@pksistem.com
-- Instagram: @pksistem`;
+// Função para formatar o texto da IA (transforma **texto** em negrito real)
+function formatarTexto(texto: string) {
+  let html = texto
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Negrito
+    .replace(/\n- /g, '<br>• ') // Listas
+    .replace(/\n/g, '<br>'); // Quebras de linha
+  return { __html: html };
+}
 
 export default function PkChat({ tenant, compact = false }: { tenant: Tenant | null; compact?: boolean }) {
   const [platform, setPlatform] = useState<PlatformSettings | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const seq = useRef(1);
   const endRef = useRef<HTMLDivElement>(null);
+
+  // Configuração do Reconhecimento de Voz (Web Speech API)
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     api.getPlatformPublic().then(setPlatform).catch(() => {});
     setMessages([]);
+
+    // Inicializa o reconhecimento de voz se o navegador suportar
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.lang = "pt-BR";
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = () => setIsListening(false);
+      recognitionRef.current.onend = () => setIsListening(false);
+    }
   }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert("Seu navegador não suporta reconhecimento de voz. Tente usar o Chrome.");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      setInput(""); // Limpa antes de ouvir
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   async function send(text?: string) {
     const msg = (text ?? input).trim();
@@ -138,18 +97,10 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
     
     try {
       const msgs: any[] = [{ role: "system", content: SYSTEM_PROMPT }];
-      
       messages.forEach(m => {
-        if (m.role === "user") {
-          msgs.push({ role: "user", content: m.text });
-        } else {
-          msgs.push({ role: "assistant", content: m.text });
-        }
+        msgs.push({ role: m.role === "user" ? "user" : "assistant", content: m.text });
       });
-      
       msgs.push({ role: "user", content: msg });
-
-      console.log("ENVIANDO:", JSON.stringify(msgs, null, 2));
 
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -158,31 +109,23 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "openai/gpt-oss-120b",
+          model: "llama-3.3-70b-versatile", // Modelo inteligente e rápido
           messages: msgs,
-          temperature: 0.7,
-          max_tokens: 1000
+          temperature: 0.3, // Temperatura baixa = respostas mais focadas e menos "criativas/alucinadas"
+          max_tokens: 300 // Limita o tamanho da resposta para ser curta!
         })
       });
 
       const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error?.message || "Erro HTTP " + res.status);
-      }
+      if (!res.ok) throw new Error(data.error?.message || "Erro HTTP " + res.status);
 
       const reply = data.choices?.[0]?.message?.content;
       if (!reply) throw new Error("Resposta vazia");
       
       setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply }]);
-      
     } catch (error) {
       console.error("ERRO:", error);
-      setMessages((m) => [...m, { 
-        id: seq.current++, 
-        role: "bot", 
-        text: "Erro: " + (error instanceof Error ? error.message : "desconhecido") 
-      }]);
+      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: "❌ Erro: " + (error instanceof Error ? error.message : "desconhecido") }]);
     } finally {
       setThinking(false);
     }
@@ -196,7 +139,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
         </span>
         <div>
           <p className="text-[14px] font-extrabold text-cream">PKChat</p>
-          <p className="text-[11px] font-semibold text-pine-300">IA Conectada</p>
+          <p className="text-[11px] font-semibold text-pine-300">Assistente Inteligente</p>
         </div>
       </div>
 
@@ -204,7 +147,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
         {messages.length === 0 && (
           <div className="text-center text-pine-500 py-8">
             <p className="text-sm font-bold">Olá! Sou o PKChat. 👋</p>
-            <p className="text-xs mt-1">Como posso ajudar?</p>
+            <p className="text-xs mt-1">Pergunte sobre cardápio, pedidos ou planos.</p>
           </div>
         )}
         
@@ -213,24 +156,36 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
             <div className={cn("max-w-[85%] whitespace-pre-line rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed", 
               m.role === "user" 
                 ? "rounded-br-md bg-pine-950 font-semibold text-cream" 
-                : "rounded-bl-md border border-pine-100 bg-paper text-pine-800"
+                : "rounded-bl-md border border-pine-100 bg-paper text-pine-800 dark:bg-[#1a1a16] dark:text-pine-100"
             )}>
-              {m.text}
+              {/* Renderiza o HTML formatado (negrito real) */}
+              <span dangerouslySetInnerHTML={formatarTexto(m.text)} />
             </div>
           </div>
         ))}
-        {thinking && <div className="text-[12px] font-bold text-pine-500">Pensando…</div>}
+        {thinking && <div className="text-[12px] font-bold text-pine-500 flex items-center gap-2"><span className="animate-pulse">●</span> Pensando…</div>}
         <div ref={endRef} />
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-2 border-t border-pine-100 px-3 py-3">
+        {/* Botão de Microfone */}
+        <button 
+          type="button" 
+          onClick={toggleListening}
+          className={cn("flex h-10 w-10 items-center justify-center rounded-xl transition-colors", isListening ? "bg-red-500 text-white animate-pulse" : "bg-pine-100 text-pine-600 hover:bg-pine-200 dark:bg-pine-800 dark:text-pine-300")}
+          title="Falar em vez de digitar"
+        >
+          <I name="mic" size={18} />
+        </button>
+
         <input 
           value={input} 
           onChange={(e) => setInput(e.target.value)} 
-          placeholder="Digite sua dúvida…" 
-          className="h-10 flex-1 rounded-xl border border-pine-200 bg-cream px-3.5 text-[13.5px]"
+          placeholder={isListening ? "Ouvindo..." : "Digite ou fale sua dúvida…"} 
+          className="h-10 flex-1 rounded-xl border border-pine-200 bg-cream px-3.5 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-saffron-400 dark:border-pine-700 dark:bg-pine-950 dark:text-cream"
+          disabled={isListening}
         />
-        <button type="submit" disabled={!input.trim() || thinking} className="flex h-10 w-10 items-center justify-center rounded-xl bg-saffron-400 text-pine-950">
+        <button type="submit" disabled={!input.trim() || thinking} className="flex h-10 w-10 items-center justify-center rounded-xl bg-saffron-400 text-pine-950 hover:bg-saffron-300 transition-colors disabled:opacity-50">
           <I name="send" size={17} />
         </button>
       </form>
