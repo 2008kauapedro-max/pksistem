@@ -3,7 +3,6 @@ import { api } from "../lib/api";
 import type { PlatformSettings, Tenant } from "../lib/types";
 import { cn } from "../lib/utils";
 import { I } from "./icons";
-import { Spinner } from "./ui";
 
 interface Msg {
   id: number;
@@ -11,7 +10,7 @@ interface Msg {
   text: string;
 }
 
-const SYSTEM_PROMPT = `Você é o PKChat, assistente do PKSISTEM.`;
+const SYSTEM_PROMPT = "Você é o PKChat, assistente do PKSISTEM. Responda em português.";
 
 export default function PkChat({ tenant, compact = false }: { tenant: Tenant | null; compact?: boolean }) {
   const [platform, setPlatform] = useState<PlatformSettings | null>(null);
@@ -23,8 +22,8 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
 
   useEffect(() => {
     api.getPlatformPublic().then(setPlatform).catch(() => {});
-    // MUDANÇA CRÍTICA: Mensagem inicial como "user" em vez de "bot"
-    setMessages([{ id: 0, role: "user", text: "Olá! Sou o PKChat." }]);
+    // SEM MENSAGEM INICIAL - começa vazio
+    setMessages([]);
   }, []);
 
   useEffect(() => {
@@ -40,63 +39,59 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
     setThinking(true);
     
     if (!import.meta.env.VITE_GROQ_API_KEY) {
-      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: "⚠️ API Key não configurada!" }]);
+      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: "API Key faltando" }]);
       setThinking(false);
       return;
     }
     
     try {
-      const messagesPayload: Array<{role: string; content: string}> = [];
+      const msgs: any[] = [{ role: "system", content: SYSTEM_PROMPT }];
       
-      // System message
-      messagesPayload.push({ role: "system", content: SYSTEM_PROMPT });
-      
-      // Histórico - CONVERSÃO EXPLÍCITA
+      // Adiciona APENAS mensagens do histórico (sem a inicial "bot")
       messages.forEach(m => {
         if (m.role === "user") {
-          messagesPayload.push({ role: "user", content: m.text });
+          msgs.push({ role: "user", content: m.text });
         } else {
-          messagesPayload.push({ role: "assistant", content: m.text });
+          msgs.push({ role: "assistant", content: m.text });
         }
       });
       
-      // Mensagem atual
-      messagesPayload.push({ role: "user", content: msg });
+      // Adiciona mensagem atual
+      msgs.push({ role: "user", content: msg });
 
-      console.log("📤 ENVIANDO:", messagesPayload);
+      console.log("ENVIANDO:", JSON.stringify(msgs, null, 2));
 
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+          "Authorization": "Bearer " + import.meta.env.VITE_GROQ_API_KEY,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
           model: "llama3-70b-8192",
-          messages: messagesPayload,
+          messages: msgs,
           temperature: 0.7,
           max_tokens: 1000
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error?.message || "Erro HTTP " + res.status);
       }
 
-      const data = await response.json();
       const reply = data.choices?.[0]?.message?.content;
-      
       if (!reply) throw new Error("Resposta vazia");
       
       setMessages((m) => [...m, { id: seq.current++, role: "bot", text: reply }]);
       
     } catch (error) {
-      console.error("💥 ERRO:", error);
+      console.error("ERRO:", error);
       setMessages((m) => [...m, { 
         id: seq.current++, 
         role: "bot", 
-        text: ` Erro: ${error instanceof Error ? error.message : "Erro"}` 
+        text: "Erro: " + (error instanceof Error ? error.message : "desconhecido") 
       }]);
     } finally {
       setThinking(false);
@@ -108,7 +103,6 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
       <div className="flex items-center gap-3 border-b border-pine-100 bg-pine-950 px-4 py-3.5 dark:border-pine-800">
         <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-saffron-400 text-pine-950">
           <I name="zap" size={18} />
-          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#3ecf6e] ring-2 ring-pine-950" />
         </span>
         <div>
           <p className="text-[14px] font-extrabold text-cream">PKChat</p>
@@ -117,6 +111,13 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        {messages.length === 0 && (
+          <div className="text-center text-pine-500 py-8">
+            <p className="text-sm">Olá! Sou o PKChat.</p>
+            <p className="text-xs mt-1">Como posso ajudar?</p>
+          </div>
+        )}
+        
         {messages.map((m) => (
           <div key={m.id} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
             <div className={cn("max-w-[85%] whitespace-pre-line rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed", 
@@ -128,7 +129,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
             </div>
           </div>
         ))}
-        {thinking && <div className="text-[12px] font-bold text-pine-500">PKChat está pensando…</div>}
+        {thinking && <div className="text-[12px] font-bold text-pine-500">Pensando…</div>}
         <div ref={endRef} />
       </div>
 
