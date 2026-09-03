@@ -22,7 +22,6 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
 
   useEffect(() => {
     api.getPlatformPublic().then(setPlatform).catch(() => {});
-    // SEM MENSAGEM INICIAL - começa vazio
     setMessages([]);
   }, []);
 
@@ -39,7 +38,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
     setThinking(true);
     
     if (!import.meta.env.VITE_GROQ_API_KEY) {
-      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: "API Key faltando" }]);
+      setMessages((m) => [...m, { id: seq.current++, role: "bot", text: "⚠️ API Key não configurada!" }]);
       setThinking(false);
       return;
     }
@@ -47,7 +46,6 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
     try {
       const msgs: any[] = [{ role: "system", content: SYSTEM_PROMPT }];
       
-      // Adiciona APENAS mensagens do histórico (sem a inicial "bot")
       messages.forEach(m => {
         if (m.role === "user") {
           msgs.push({ role: "user", content: m.text });
@@ -56,29 +54,23 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
         }
       });
       
-      // Adiciona mensagem atual
-     from groq import Groq
+      msgs.push({ role: "user", content: msg });
 
-client = Groq()
-completion = client.chat.completions.create(
-    model="openai/gpt-oss-120b",
-    messages=[
-      {
-        "role": "user",
-        "content": ""
-      }
-    ],
-    temperature=1,
-    max_completion_tokens=2048,
-    top_p=1,
-    reasoning_effort="medium",
-    stream=True,
-    stop=None
-)
+      console.log("ENVIANDO:", JSON.stringify(msgs, null, 2));
 
-for chunk in completion:
-    print(chunk.choices[0].delta.content or "", end="")
-
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + import.meta.env.VITE_GROQ_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-oss-120b",
+          messages: msgs,
+          temperature: 0.7,
+          max_tokens: 1000
+        })
+      });
 
       const data = await res.json();
       
@@ -118,7 +110,7 @@ for chunk in completion:
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 && (
           <div className="text-center text-pine-500 py-8">
-            <p className="text-sm">Olá! Sou o PKChat.</p>
+            <p className="text-sm font-bold">Olá! Sou o PKChat. 👋</p>
             <p className="text-xs mt-1">Como posso ajudar?</p>
           </div>
         )}
