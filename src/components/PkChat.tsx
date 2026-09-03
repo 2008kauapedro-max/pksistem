@@ -109,7 +109,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile", // Modelo inteligente e rápido
+          model: "openai/gpt-oss-120b", // Modelo inteligente e rápido
           messages: msgs,
           temperature: 0.3, // Temperatura baixa = respostas mais focadas e menos "criativas/alucinadas"
           max_tokens: 300 // Limita o tamanho da resposta para ser curta!
