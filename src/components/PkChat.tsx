@@ -80,7 +80,7 @@ export default function PkChat({ tenant, compact = false }: { tenant: Tenant | n
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "mixtral-8x7b-32768",
+          model: "llama3-70b-8192",
           messages: messagesPayload,
           temperature: 0.7,
           max_tokens: 1000
